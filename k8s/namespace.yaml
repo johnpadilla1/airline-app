@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airline
+  labels:
+    name: airline
+    app: airline-tracker

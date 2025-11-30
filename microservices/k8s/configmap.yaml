@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airline-config
+  namespace: airline
+data:
+  # Database Configuration
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "airline_db"
+  
+  # Kafka Configuration
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-service:9092"
+  
+  # Service URLs (K8s internal DNS)
+  FLIGHT_SERVICE_URL: "http://flight-service:8081"
+  
+  # Event Producer Settings
+  EVENT_PRODUCER_ENABLED: "true"
+  EVENT_INTERVAL_MS: "8000"
+  
+  # Logging
+  LOG_LEVEL_APP: "DEBUG"

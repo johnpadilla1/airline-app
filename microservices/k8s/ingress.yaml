@@ -1,0 +1,64 @@
+---
+# Ingress for routing all traffic to microservices
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: airline-ingress
+  namespace: airline
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # SSE support - disable buffering
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-cache: "off"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: airline.local
+      http:
+        paths:
+          # Flight Service - /api/flights/*
+          - path: /api/flights
+            pathType: Prefix
+            backend:
+              service:
+                name: flight-service
+                port:
+                  number: 8081
+          
+          # Chat Service - /api/chat/*
+          - path: /api/chat
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 8082
+          
+          # Notification Service - /api/events/* (SSE stream)
+          - path: /api/events
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8084
+          
+          # Kafka UI
+          - path: /kafka-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui-service
+                port:
+                  number: 8080
+          
+          # Frontend - catch all
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
