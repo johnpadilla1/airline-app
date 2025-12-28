@@ -1,0 +1,41 @@
+# H2 In-Memory Database Configuration
+# Use this profile for running without PostgreSQL: mvn spring-boot:run -Dspring-boot.run.profiles=h2
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:airlinedb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    # Explicitly set H2 dialect to avoid PostgreSQL dialect usage
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # Kafka disabled for H2 profile - use invalid bootstrap-servers
+  kafka:
+    bootstrap-servers: localhost:99999
+
+  # Disable Kafka auto-configuration for this profile
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+# Flyway disabled for H2
+flyway:
+  enabled: false
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.airline: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG

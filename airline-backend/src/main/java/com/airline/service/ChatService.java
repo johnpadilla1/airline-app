@@ -1,5 +1,6 @@
 package com.airline.service;
 
+import com.airline.exception.SqlValidationException;
 import com.airline.model.dto.ChatMessage;
 import com.airline.model.dto.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,12 +9,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -27,19 +35,29 @@ public class ChatService {
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     // Store chat history per session (last 6 messages)
     private final ConcurrentHashMap<String, java.util.Deque<ChatMessage>> sessionHistory = new ConcurrentHashMap<>();
     private static final int MAX_HISTORY_SIZE = 6;
-    
+
     // Pattern to extract SQL from response
     private static final Pattern SQL_PATTERN = Pattern.compile("SQL:\\s*(.+?)(?:\\n|$)", Pattern.CASE_INSENSITIVE);
-    
+
     // Forbidden SQL keywords for safety
-    private static final List<String> FORBIDDEN_KEYWORDS = List.of(
-            "INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE", "ALTER", 
-            "CREATE", "GRANT", "REVOKE", "EXEC", "EXECUTE", "MERGE"
+    private static final Set<String> FORBIDDEN_KEYWORDS = Set.of(
+            "INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE", "ALTER",
+            "CREATE", "GRANT", "REVOKE", "EXEC", "EXECUTE", "MERGE",
+            "COPY", "DECLARE", "CURSOR", "TRIGGER", "FUNCTION", "PROCEDURE"
     );
+
+    // Allowed tables for whitelist approach
+    private static final Set<String> ALLOWED_TABLES = Set.of(
+            "flights", "flight_events"
+    );
+
+    // Maximum query complexity limits
+    private static final int MAX_QUERY_LENGTH = 1000;
+    private static final int MAX_RESULTS = 100;
 
     public ChatResponse chat(String sessionId, String userMessage) {
         try {
@@ -47,11 +65,24 @@ public class ChatService {
             addToHistory(sessionId, ChatMessage.userMessage(userMessage));
             
             // Call LLM with conversation context
-            String llmResponse = chatClient.prompt()
-                    .user(userMessage)
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
-                    .call()
-                    .content();
+            String llmResponse;
+            try {
+                llmResponse = chatClient.prompt()
+                        .user(userMessage)
+                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
+                        .call()
+                        .content();
+            } catch (Exception e) {
+                // Check if it's an authentication error
+                if (e.getMessage() != null && (e.getMessage().contains("401") || e.getMessage().contains("auth"))) {
+                    log.error("OpenRouter API authentication failed. Please configure OPENROUTER_API_KEY environment variable.");
+                    return ChatResponse.builder()
+                            .success(false)
+                            .error("AI chat is not configured. Please set up the OpenRouter API key. Get a free key at https://openrouter.ai/")
+                            .build();
+                }
+                throw e;
+            }
             
             log.debug("LLM Response: {}", llmResponse);
             
@@ -59,27 +90,34 @@ public class ChatService {
             String extractedSql = extractSql(llmResponse);
             List<Map<String, Object>> queryResults = null;
             String finalAnswer;
-            
+
             if (extractedSql != null && !extractedSql.isEmpty()) {
                 // Validate SQL is safe (SELECT only)
-                if (!isValidSelectQuery(extractedSql)) {
-                    return ChatResponse.builder()
-                            .success(false)
-                            .error("Only SELECT queries are allowed for security reasons.")
-                            .build();
-                }
-                
+                validateSqlQuery(extractedSql);
+
                 try {
-                    // Execute the SQL query
+                    // Execute the SQL query with prepared statement
                     queryResults = executeQuery(extractedSql);
                     log.info("Query executed successfully, returned {} rows", queryResults.size());
-                    
+
+                    // Limit results to prevent overwhelming responses
+                    if (queryResults.size() > MAX_RESULTS) {
+                        log.warn("Query returned {} rows, limiting to {}", queryResults.size(), MAX_RESULTS);
+                        queryResults = queryResults.subList(0, MAX_RESULTS);
+                    }
+
                     // Pass results back to LLM for natural language answer
                     finalAnswer = generateAnswerFromResults(sessionId, userMessage, extractedSql, queryResults);
-                    
+
+                } catch (SqlValidationException e) {
+                    log.error("SQL validation error: {}", e.getMessage());
+                    return ChatResponse.builder()
+                            .success(false)
+                            .error("SQL validation failed: " + e.getMessage())
+                            .build();
                 } catch (Exception e) {
                     log.error("SQL execution error: {}", e.getMessage());
-                    finalAnswer = "I generated a query but encountered an error executing it: " + e.getMessage() + 
+                    finalAnswer = "I generated a query but encountered an error executing it: " + e.getMessage() +
                                   "\n\nPlease try rephrasing your question.";
                 }
             } else {
@@ -116,35 +154,60 @@ public class ChatService {
                 addToHistory(sessionId, ChatMessage.userMessage(userMessage));
                 
                 // First, call LLM synchronously to get the SQL query
-                String llmResponse = chatClient.prompt()
-                        .user(userMessage)
-                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
-                        .call()
-                        .content();
+                String llmResponse;
+                try {
+                    llmResponse = chatClient.prompt()
+                            .user(userMessage)
+                            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
+                            .call()
+                            .content();
+                } catch (Exception e) {
+                    // Check if it's an authentication error
+                    if (e.getMessage() != null && (e.getMessage().contains("401") || e.getMessage().contains("auth"))) {
+                        log.error("OpenRouter API authentication failed. Please configure OPENROUTER_API_KEY environment variable.");
+                        String error = "⚠️ AI chat is not configured. Please set up the OpenRouter API key.\n\n" +
+                                     "To enable AI chat:\n" +
+                                     "1. Get a free API key at https://openrouter.ai/\n" +
+                                     "2. Set: export OPENROUTER_API_KEY='your-key'\n" +
+                                     "3. Restart the backend\n\n" +
+                                     "The rest of the application works fine without this!";
+                        return Flux.just(escapeForSse(error), "[DONE]");
+                    }
+                    throw e;
+                }
                 
                 log.debug("LLM Response: {}", llmResponse);
                 
                 // Extract SQL if present
                 String extractedSql = extractSql(llmResponse);
-                
+
                 if (extractedSql != null && !extractedSql.isEmpty()) {
                     // Validate SQL is safe
-                    if (!isValidSelectQuery(extractedSql)) {
-                        String error = "Only SELECT queries are allowed for security reasons.";
+                    try {
+                        validateSqlQuery(extractedSql);
+                    } catch (SqlValidationException e) {
+                        log.error("SQL validation error: {}", e.getMessage());
+                        String error = "SQL validation failed: " + e.getMessage();
                         return Flux.just(escapeForSse(error), "[DONE]");
                     }
-                    
+
                     try {
-                        // Execute the SQL query
+                        // Execute the SQL query with prepared statement
                         List<Map<String, Object>> results = executeQuery(extractedSql);
+
+                        // Limit results
+                        if (results.size() > MAX_RESULTS) {
+                            results = results.subList(0, MAX_RESULTS);
+                        }
+
                         log.info("Query executed, {} rows returned", results.size());
-                        
+
                         // Build context for streaming answer
                         String context = buildAnswerContext(userMessage, extractedSql, results);
-                        
+
                         // Stream the final answer
                         AtomicReference<StringBuilder> fullAnswer = new AtomicReference<>(new StringBuilder());
-                        
+
                         return chatClient.prompt()
                                 .user(context)
                                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId + "-answer"))
@@ -164,7 +227,7 @@ public class ChatService {
                                     log.error("Streaming error: ", e);
                                     return Flux.just("Error: " + e.getMessage(), "[DONE]");
                                 });
-                                
+
                     } catch (Exception e) {
                         log.error("SQL execution error: {}", e.getMessage());
                         String errorMsg = "I tried to query the database but got an error: " + e.getMessage() + "\n\nPlease try rephrasing your question.";
@@ -241,28 +304,65 @@ public class ChatService {
         return null;
     }
     
-    private boolean isValidSelectQuery(String sql) {
-        String upperSql = sql.toUpperCase().trim();
-        
-        // Must start with SELECT
-        if (!upperSql.startsWith("SELECT")) {
-            return false;
+    /**
+     * Comprehensive SQL query validation with multiple layers of security
+     */
+    private void validateSqlQuery(String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new SqlValidationException("SQL query cannot be empty");
         }
-        
-        // Check for forbidden keywords
+
+        String upperSql = sql.toUpperCase().trim();
+
+        // 1. Check query length
+        if (sql.length() > MAX_QUERY_LENGTH) {
+            throw new SqlValidationException("Query exceeds maximum allowed length of " + MAX_QUERY_LENGTH);
+        }
+
+        // 2. Must start with SELECT
+        if (!upperSql.startsWith("SELECT")) {
+            throw new SqlValidationException("Only SELECT queries are allowed");
+        }
+
+        // 3. Check for forbidden keywords
         for (String forbidden : FORBIDDEN_KEYWORDS) {
             if (upperSql.contains(forbidden)) {
-                log.warn("Forbidden keyword detected: {}", forbidden);
-                return false;
+                log.warn("Forbidden SQL keyword detected: {}", forbidden);
+                throw new SqlValidationException("Query contains forbidden keyword: " + forbidden);
             }
         }
-        
-        // Check for suspicious patterns (multiple statements)
-        if (sql.contains(";")) {
-            return false;
+
+        // 4. Check for suspicious patterns (multiple statements, comments, etc.)
+        if (sql.contains(";") || sql.contains("--") || sql.contains("/*") || sql.contains("*/")) {
+            throw new SqlValidationException("Query contains suspicious patterns (multiple statements or comments)");
         }
-        
-        return true;
+
+        // 5. Check for SQL injection patterns
+        String[] injectionPatterns = {
+                "'\\s*or\\s*'", "'\\s*and\\s*'", "\\bor\\s+1\\s*=\\s*1",
+                "\\band\\s+1\\s*=\\s*1", "union\\s+select", "\\bexec\\s*\\("
+        };
+
+        for (String pattern : injectionPatterns) {
+            if (sql.toLowerCase().matches("(?i).*" + pattern + ".*")) {
+                log.warn("SQL injection pattern detected: {}", pattern);
+                throw new SqlValidationException("Query contains potential SQL injection pattern");
+            }
+        }
+
+        // 6. Whitelist table validation - ensure only allowed tables are accessed
+        for (String table : ALLOWED_TABLES) {
+            String upperTable = table.toUpperCase();
+            if (upperSql.contains("FROM " + upperTable) ||
+                upperSql.contains("FROM \"" + upperTable + "\"") ||
+                upperSql.contains("JOIN " + upperTable) ||
+                upperSql.contains("JOIN \"" + upperTable + "\"")) {
+                // Found an allowed table
+                return;
+            }
+        }
+
+        throw new SqlValidationException("Query must access only allowed tables: " + ALLOWED_TABLES);
     }
     
     private List<Map<String, Object>> executeQuery(String sql) {

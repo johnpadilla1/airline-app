@@ -1,5 +1,7 @@
 package com.airline.service;
 
+import com.airline.exception.InvalidInputException;
+import com.airline.exception.ResourceNotFoundException;
 import com.airline.model.dto.FlightDTO;
 import com.airline.model.dto.FlightEventDTO;
 import com.airline.model.entity.Flight;
@@ -9,6 +11,8 @@ import com.airline.repository.FlightEventRepository;
 import com.airline.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +29,9 @@ public class FlightService {
     private final FlightRepository flightRepository;
     private final FlightEventRepository flightEventRepository;
 
+    private static final int MAX_FLIGHT_NUMBER_LENGTH = 10;
+    private static final int MIN_FLIGHT_NUMBER_LENGTH = 3;
+
     /**
      * Get all flights
      */
@@ -37,7 +44,9 @@ public class FlightService {
     /**
      * Get flight by ID
      */
+    @Cacheable(value = "flights", key = "#id")
     public Optional<FlightDTO> getFlightById(Long id) {
+        validateFlightId(id);
         return flightRepository.findById(id)
                 .map(this::mapToDetailedDTO);
     }
@@ -45,7 +54,9 @@ public class FlightService {
     /**
      * Get flight by flight number
      */
+    @Cacheable(value = "flights", key = "#flightNumber")
     public Optional<FlightDTO> getFlightByNumber(String flightNumber) {
+        validateFlightNumber(flightNumber);
         return flightRepository.findByFlightNumber(flightNumber)
                 .map(this::mapToDetailedDTO);
     }
@@ -54,6 +65,9 @@ public class FlightService {
      * Get flights by status
      */
     public List<FlightDTO> getFlightsByStatus(FlightStatus status) {
+        if (status == null) {
+            throw new InvalidInputException("Flight status cannot be null");
+        }
         return flightRepository.findByStatus(status).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -63,6 +77,12 @@ public class FlightService {
      * Get flights by airline
      */
     public List<FlightDTO> getFlightsByAirline(String airline) {
+        if (airline == null || airline.trim().isEmpty()) {
+            throw new InvalidInputException("Airline code cannot be empty");
+        }
+        if (airline.length() > 10) {
+            throw new InvalidInputException("Airline code cannot exceed 10 characters");
+        }
         return flightRepository.findByAirline(airline).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -144,5 +164,32 @@ public class FlightService {
                 .eventTimestamp(event.getEventTimestamp())
                 .processedTimestamp(event.getProcessedTimestamp())
                 .build();
+    }
+
+    /**
+     * Validate flight ID
+     */
+    private void validateFlightId(Long id) {
+        if (id == null) {
+            throw new InvalidInputException("Flight ID cannot be null");
+        }
+        if (id <= 0) {
+            throw new InvalidInputException("Flight ID must be positive");
+        }
+    }
+
+    /**
+     * Validate flight number
+     */
+    private void validateFlightNumber(String flightNumber) {
+        if (flightNumber == null || flightNumber.trim().isEmpty()) {
+            throw new InvalidInputException("Flight number cannot be empty");
+        }
+        if (flightNumber.length() < MIN_FLIGHT_NUMBER_LENGTH ||
+            flightNumber.length() > MAX_FLIGHT_NUMBER_LENGTH) {
+            throw new InvalidInputException(String.format(
+                    "Flight number must be between %d and %d characters",
+                    MIN_FLIGHT_NUMBER_LENGTH, MAX_FLIGHT_NUMBER_LENGTH));
+        }
     }
 }

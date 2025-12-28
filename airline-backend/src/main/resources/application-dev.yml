@@ -1,0 +1,35 @@
+# Development Environment Configuration
+
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.airline: DEBUG
+    org.springframework.kafka: DEBUG
+    org.springframework.ai: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Development CORS settings
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000,http://localhost:8080
+
+# Actuator - more exposed in development
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always

@@ -23,5 +23,5 @@ data:
   
   # Spring AI Configuration
   AI_BASE_URL: "https://openrouter.ai/api"
-  AI_MODEL: "x-ai/grok-4.1-fast:free"
+  AI_MODEL: "x-ai/grok-4.1-fast"
   AI_TEMPERATURE: "0.7"

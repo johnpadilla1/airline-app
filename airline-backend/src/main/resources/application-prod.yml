@@ -1,0 +1,29 @@
+# Production Environment Configuration
+
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    com.airline: INFO
+    org.springframework.kafka: WARN
+    org.springframework.ai: WARN
+    org.springframework.security: WARN
+
+# Production CORS settings - configure via environment variable
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+# Actuator - restricted in production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never

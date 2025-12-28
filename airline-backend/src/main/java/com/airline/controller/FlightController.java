@@ -19,7 +19,6 @@ import java.util.Map;
 @RequestMapping("/api/flights")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
 public class FlightController {
 
     private final FlightService flightService;

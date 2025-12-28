@@ -1,0 +1,448 @@
+# Feature Module Template
+
+This template shows the recommended structure for a feature module in a React application.
+
+## Directory Structure
+
+```
+features/
+└── feature-name/
+    ├── components/          # Feature-specific components
+    │   ├── FeatureHeader/
+    │   │   ├── FeatureHeader.tsx
+    │   │   ├── FeatureHeader.test.tsx
+    │   │   ├── index.ts
+    │   │   └── types.ts
+    │   ├── FeatureItem/
+    │   └── index.ts
+    ├── hooks/              # Feature-specific custom hooks
+    │   ├── useFeatureData.ts
+    │   ├── useFeatureData.test.ts
+    │   └── index.ts
+    ├── api/                # API calls for this feature
+    │   ├── featureApi.ts
+    │   ├── featureApi.test.ts
+    │   └── index.ts
+    ├── types/              # TypeScript types
+    │   ├── feature.types.ts
+    │   └── index.ts
+    ├── utils/              # Feature-specific utilities
+    │   ├── helpers.ts
+    │   └── index.ts
+    ├── constants/          # Feature constants
+    │   ├── index.ts
+    │   └── defaults.ts
+    ├── context/            # Feature context (if needed)
+    │   └── FeatureContext.tsx
+    ├── index.ts            # Public API exports
+    └── FeaturePage.tsx     # Main page component
+```
+
+## File Templates
+
+### 1. Types (types/feature.types.ts)
+
+```typescript
+/**
+ * FeatureName Types
+ */
+
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+
+export interface FeatureItem {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// API TYPES
+// ============================================================================
+
+export interface CreateFeatureItemData {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateFeatureItemData {
+  name?: string;
+  description?: string;
+}
+
+export interface FeatureItemFilters {
+  search?: string;
+  status?: string;
+}
+
+// ============================================================================
+// COMPONENT PROPS
+// ============================================================================
+
+export interface FeatureListProps {
+  items: FeatureItem[];
+  onEdit: (item: FeatureItem) => void;
+  onDelete: (id: string) => void;
+}
+
+export interface FeatureItemProps {
+  item: FeatureItem;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+// ============================================================================
+// STATE TYPES
+// ============================================================================
+
+export type FeatureState = {
+  items: FeatureItem[];
+  loading: boolean;
+  error: string | null;
+};
+
+export type FeatureAction =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; payload: FeatureItem[] }
+  | { type: 'FETCH_ERROR'; payload: string };
+```
+
+### 2. API (api/featureApi.ts)
+
+```typescript
+/**
+ * FeatureName API
+ */
+
+import type {
+  FeatureItem,
+  CreateFeatureItemData,
+  UpdateFeatureItemData,
+} from '../types';
+import { apiClient } from '@/lib/api-client';
+
+const BASE_URL = '/api/feature-items';
+
+export const featureApi = {
+  /**
+   * Get all feature items
+   */
+  async getAll(filters?: { search?: string }): Promise<FeatureItem[]> {
+    const response = await apiClient.get(BASE_URL, { params: filters });
+    return response.data;
+  },
+
+  /**
+   * Get feature item by ID
+   */
+  async getById(id: string): Promise<FeatureItem> {
+    const response = await apiClient.get(`${BASE_URL}/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Create new feature item
+   */
+  async create(data: CreateFeatureItemData): Promise<FeatureItem> {
+    const response = await apiClient.post(BASE_URL, data);
+    return response.data;
+  },
+
+  /**
+   * Update feature item
+   */
+  async update(id: string, data: UpdateFeatureItemData): Promise<FeatureItem> {
+    const response = await apiClient.patch(`${BASE_URL}/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete feature item
+   */
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`${BASE_URL}/${id}`);
+  },
+};
+```
+
+### 3. Custom Hook (hooks/useFeatureData.ts)
+
+```typescript
+/**
+ * useFeatureData Hook
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { featureApi } from '../api';
+import type { CreateFeatureItemData, UpdateFeatureItemData } from '../types';
+
+// Query keys
+export const featureKeys = {
+  all: ['feature-items'] as const,
+  lists: () => [...featureKeys.all, 'list'] as const,
+  list: (filters: { search?: string }) =>
+    [...featureKeys.lists(), filters] as const,
+  details: () => [...featureKeys.all, 'detail'] as const,
+  detail: (id: string) => [...featureKeys.details(), id] as const,
+};
+
+/**
+ * Get all feature items
+ */
+export function useFeatureItems(filters?: { search?: string }) {
+  return useQuery({
+    queryKey: featureKeys.list(filters || {}),
+    queryFn: () => featureApi.getAll(filters),
+  });
+}
+
+/**
+ * Get feature item by ID
+ */
+export function useFeatureItem(id: string) {
+  return useQuery({
+    queryKey: featureKeys.detail(id),
+    queryFn: () => featureApi.getById(id),
+    enabled: !!id,
+  });
+}
+
+/**
+ * Create feature item
+ */
+export function useCreateFeatureItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateFeatureItemData) => featureApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: featureKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Update feature item
+ */
+export function useUpdateFeatureItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateFeatureItemData }) =>
+      featureApi.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: featureKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: featureKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Delete feature item
+ */
+export function useDeleteFeatureItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => featureApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: featureKeys.lists() });
+    },
+  });
+}
+```
+
+### 4. Component (components/FeatureItem/FeatureItem.tsx)
+
+```typescript
+/**
+ * FeatureItem Component
+ */
+
+import { memo } from 'react';
+import type { FC } from 'react';
+import { Card, CardContent, Typography, IconButton, Box } from '@mui/material';
+import { Edit, Delete } from '@mui/icons-material';
+import type { FeatureItemProps } from '../types';
+
+export const FeatureItem: FC<FeatureItemProps> = memo(function FeatureItem({
+  item,
+  onEdit,
+  onDelete,
+}) {
+  return (
+    <Card>
+      <CardContent>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h6">{item.name}</Typography>
+            {item.description && (
+              <Typography variant="body2" color="text.secondary">
+                {item.description}
+              </Typography>
+            )}
+          </Box>
+          <Box>
+            {onEdit && (
+              <IconButton onClick={onEdit} aria-label="Edit">
+                <Edit />
+              </IconButton>
+            )}
+            {onDelete && (
+              <IconButton onClick={onDelete} aria-label="Delete" color="error">
+                <Delete />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+});
+```
+
+### 5. Page Component (FeaturePage.tsx)
+
+```typescript
+/**
+ * FeatureName Page
+ */
+
+import { useState } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Stack,
+  TextField,
+} from '@mui/material';
+import { Add } from '@mui/icons-material';
+import { useFeatureItems, useDeleteFeatureItem } from './hooks';
+import { FeatureItem } from './components';
+import type { FeatureItem as FeatureItemType } from './types';
+
+export function FeaturePage() {
+  const [search, setSearch] = useState('');
+  const { data: items, isLoading, error } = useFeatureItems({ search });
+  const deleteItem = useDeleteFeatureItem();
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure?')) {
+      deleteItem.mutate(id);
+    }
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading items</div>;
+
+  return (
+    <Container maxWidth="lg">
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          Feature Items
+        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button variant="contained" startIcon={<Add />}>
+            Add New
+          </Button>
+        </Stack>
+      </Box>
+
+      <Stack spacing={2}>
+        {items?.map((item) => (
+          <FeatureItem
+            key={item.id}
+            item={item}
+            onDelete={() => handleDelete(item.id)}
+          />
+        ))}
+      </Stack>
+    </Container>
+  );
+}
+```
+
+### 6. Index File (index.ts)
+
+```typescript
+/**
+ * FeatureName Public API
+ *
+ * Export only what should be publicly accessible
+ */
+
+// Pages
+export { FeaturePage } from './FeaturePage';
+
+// Components
+export { FeatureItem } from './components';
+
+// Hooks
+export {
+  useFeatureItems,
+  useFeatureItem,
+  useCreateFeatureItem,
+  useUpdateFeatureItem,
+  useDeleteFeatureItem,
+} from './hooks';
+
+// Types
+export type {
+  FeatureItem,
+  CreateFeatureItemData,
+  UpdateFeatureItemData,
+  FeatureItemProps,
+} from './types';
+```
+
+## Usage Examples
+
+### 1. Importing in Router
+
+```typescript
+import { FeaturePage } from '@/features/feature-name';
+
+// In routes
+<Route path="/feature" element={<FeaturePage />} />
+```
+
+### 2. Importing Components
+
+```typescript
+import { FeatureItem } from '@/features/feature-name';
+
+<FeatureItem item={item} onDelete={handleDelete} />
+```
+
+### 3. Importing Hooks
+
+```typescript
+import { useFeatureItems } from '@/features/feature-name';
+
+function MyComponent() {
+  const { data, isLoading } = useFeatureItems();
+  // ...
+}
+```
+
+## Best Practices
+
+1. **Co-locate related files** - Keep components with their tests and types
+2. **Use index files** - Create clean import paths with barrel exports
+3. **Export public API only** - Hide implementation details
+4. **Feature-based organization** - Group by feature, not by file type
+5. **Type everything** - Use TypeScript for all components and functions
+6. **Test everything** - Every component should have a test file
+7. **Use React Query** - For server state management
+8. **Custom hooks** - Extract logic into reusable hooks
+9. **Constants** - Keep constants in separate files
+10. **Documentation** - Comment complex logic and public APIs
