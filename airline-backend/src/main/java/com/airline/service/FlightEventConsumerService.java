@@ -1,15 +1,16 @@
 package com.airline.service;
 
 import com.airline.config.KafkaTopicConfig;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.entity.Flight;
-import com.airline.model.entity.FlightEvent;
-import com.airline.model.enums.FlightEventType;
-import com.airline.model.enums.FlightStatus;
+import com.airline.dto.FlightEventDTO;
+import com.airline.entity.Flight;
+import com.airline.entity.FlightEvent;
+import com.airline.enums.FlightEventType;
+import com.airline.enums.FlightStatus;
 import com.airline.repository.FlightEventRepository;
 import com.airline.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class FlightEventConsumerService {
             containerFactory = "kafkaListenerContainerFactory"
     )
     @Transactional
+    @CacheEvict(value = "flights", key = "#eventDTO.flightNumber")
     public void consumeFlightEvent(FlightEventDTO eventDTO) {
         log.info("Received event: {} for flight {}", eventDTO.getEventType(), eventDTO.getFlightNumber());
 

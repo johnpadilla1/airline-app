@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import chatService from '@/features/chat/api/chatService';
+import { useChat } from '@/features/chat/hooks/useChat';
 
 /**
  * Icon component props
@@ -72,21 +72,13 @@ interface ChatPanelProps {
 }
 
 /**
- * Display message type (extended for UI)
- */
-interface DisplayMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-  sql?: string;
-}
-
-/**
  * ChatPanel Component
  *
  * AI-powered chat assistant panel with streaming responses.
  * Features message history, Markdown rendering, and SQL query display.
  * Memoized for performance with comprehensive accessibility.
+ * 
+ * Uses useChat hook for state management following React best practices.
  *
  * @example
  * ```tsx
@@ -94,19 +86,20 @@ interface DisplayMessage {
  * ```
  */
 const ChatPanel = React.memo<ChatPanelProps>(({ isOpen, onToggle, className = '' }) => {
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const {
+    messages,
+    inputValue,
+    isLoading,
+    isStreaming,
+    streamingContent,
+    error,
+    messagesEndRef,
+    setInputValue,
+    sendMessage,
+    clearHistory,
+  } = useChat();
 
-  // Scroll to bottom when messages change or streaming content updates
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when panel opens
   useEffect(() => {
@@ -116,105 +109,24 @@ const ChatPanel = React.memo<ChatPanelProps>(({ isOpen, onToggle, className = ''
     return () => clearTimeout(timeoutId);
   }, [isOpen]);
 
-  // Load history on mount
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const history = await chatService.getHistory();
-        if (history && history.length > 0) {
-          setMessages(
-            history.map((msg) => ({
-              role: msg.role.toLowerCase() as 'user' | 'assistant',
-              content: msg.content,
-              timestamp: new Date(msg.timestamp),
-            }))
-          );
-        }
-      } catch (err) {
-        console.error('Failed to load chat history:', err);
-      }
-    };
-    loadHistory();
-  }, []);
-
-  // Handle send message
-  const handleSendMessage = useCallback(async () => {
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage = inputValue.trim();
-    setInputValue('');
-    setError(null);
-
-    // Add user message to UI
-    const newUserMessage: DisplayMessage = {
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, newUserMessage]);
-    setIsLoading(true);
-    setStreamingContent('');
-
-    try {
-      await chatService.sendMessageStream(
-        userMessage,
-        // onToken - called for each streamed token
-        (token: string) => {
-          setIsLoading(false);
-          setIsStreaming(true);
-          setStreamingContent((prev) => prev + token);
-        },
-        // onComplete - called when streaming is done
-        (fullResponse: string) => {
-          setIsStreaming(false);
-          setStreamingContent('');
-          const assistantMessage: DisplayMessage = {
-            role: 'assistant',
-            content: fullResponse,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, assistantMessage]);
-        },
-        // onError - called on error
-        (errorMsg: string) => {
-          setIsLoading(false);
-          setIsStreaming(false);
-          setStreamingContent('');
-          setError(errorMsg || 'An error occurred');
-        }
-      );
-    } catch (err) {
-      console.error('Chat error:', err);
-      setIsLoading(false);
-      setIsStreaming(false);
-      setStreamingContent('');
-      setError('Failed to send message. Please try again.');
-    }
-  }, [inputValue, isLoading]);
-
   // Handle key press (Enter to send, Shift+Enter for new line)
-  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
-
-  // Handle clear history
-  const handleClearHistory = useCallback(async () => {
-    try {
-      await chatService.clearHistory();
-      setMessages([]);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to clear history:', err);
-    }
-  }, []);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    },
+    [sendMessage]
+  );
 
   // Handle suggestion click
-  const handleSuggestionClick = useCallback((suggestion: string) => {
-    setInputValue(suggestion);
-  }, []);
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      setInputValue(suggestion);
+    },
+    [setInputValue]
+  );
 
   // Keep only last 6 messages in view (matching backend)
   const displayMessages = messages.slice(-6);
@@ -262,7 +174,7 @@ const ChatPanel = React.memo<ChatPanelProps>(({ isOpen, onToggle, className = ''
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={handleClearHistory}
+                onClick={clearHistory}
                 className="p-2 rounded-lg hover:bg-theme-tertiary text-theme-muted hover:text-theme-primary transition-colors"
                 title="Clear chat history"
                 aria-label="Clear chat history"
@@ -348,7 +260,7 @@ const ChatPanel = React.memo<ChatPanelProps>(({ isOpen, onToggle, className = ''
               </div>
             ))}
 
-            {/* Loading indicator */}
+            {/* Loading icr */}
             {isLoading && (
               <div className="flex justify-start" role="status" aria-live="polite">
                 <div className="bg-theme-tertiary border border-theme rounded-2xl px-4 py-3">
@@ -401,7 +313,7 @@ const ChatPanel = React.memo<ChatPanelProps>(({ isOpen, onToggle, className = ''
                 aria-label="Chat input"
               />
               <button
-                onClick={handleSendMessage}
+                onClick={sendMessage}
                 disabled={!inputValue.trim() || isLoading || isStreaming}
                 className="p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
                 style={{

@@ -1,6 +1,6 @@
 package com.airline.service;
 
-import com.airline.model.dto.FlightEventDTO;
+import com.airline.dto.FlightEventDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,7 +1,7 @@
 package com.airline.service;
 
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.enums.FlightEventType;
+import com.airline.dto.FlightEventDTO;
+import com.airline.enums.FlightEventType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

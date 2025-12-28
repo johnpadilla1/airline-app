@@ -1,7 +1,7 @@
 package com.airline.repository;
 
-import com.airline.model.entity.Flight;
-import com.airline.model.enums.FlightStatus;
+import com.airline.entity.Flight;
+import com.airline.enums.FlightStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

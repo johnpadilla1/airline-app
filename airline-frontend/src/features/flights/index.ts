@@ -14,3 +14,6 @@ export { useFlights, useFlight, useFlightEvents, useRecentEvents, useLatestEvent
 
 // API
 export { flightService } from '@/shared/api';
+
+// Types
+export * from './types';

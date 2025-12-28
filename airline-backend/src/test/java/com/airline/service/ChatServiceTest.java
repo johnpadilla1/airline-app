@@ -1,7 +1,7 @@
 package com.airline.service;
 
-import com.airline.model.dto.ChatMessage;
-import com.airline.model.dto.ChatResponse;
+import com.airline.dto.ChatMessage;
+import com.airline.dto.ChatResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

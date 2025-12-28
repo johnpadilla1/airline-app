@@ -81,17 +81,13 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     set +a
     echo -e "${GREEN}Environment variables loaded${NC}"
 else
-    echo -e "${YELLOW}Warning: .env file not found. Create one from .env.example${NC}"
+    echo -e "${YELLOW}Note: Running without .env file (using H2 profile)${NC}"
 fi
 echo ""
 
-# Step 1: Start Docker infrastructure
-echo -e "${BLUE}Step 1: Starting Docker infrastructure...${NC}"
-docker-compose up -d
-
-# Wait for services to be ready
-wait_for_service localhost 5433 "PostgreSQL"
-wait_for_service localhost 9094 "Kafka"
+# Step 1: Skip Docker - using H2 in-memory database
+echo -e "${BLUE}Step 1: Using H2 in-memory database (no Docker required)${NC}"
+echo -e "${GREEN}Skipping Docker infrastructure${NC}"
 echo ""
 
 # Step 2: Install frontend dependencies if needed
@@ -106,16 +102,16 @@ fi
 cd "$SCRIPT_DIR"
 echo ""
 
-# Step 3: Start Backend
-echo -e "${BLUE}Step 3: Starting Spring Boot backend...${NC}"
+# Step 3: Start Backend with H2 profile
+echo -e "${BLUE}Step 3: Starting Spring Boot backend with H2 profile...${NC}"
 cd "$SCRIPT_DIR/airline-backend"
 
 # Check if Maven wrapper exists, if not use mvn
 if [ -f "./mvnw" ]; then
     chmod +x ./mvnw
-    ./mvnw spring-boot:run > "$SCRIPT_DIR/backend.log" 2>&1 &
+    ./mvnw spring-boot:run -Dspring-boot.run.profiles=h2 > "$SCRIPT_DIR/backend.log" 2>&1 &
 else
-    mvn spring-boot:run > "$SCRIPT_DIR/backend.log" 2>&1 &
+    mvn spring-boot:run -Dspring-boot.run.profiles=h2 > "$SCRIPT_DIR/backend.log" 2>&1 &
 fi
 BACKEND_PID=$!
 echo $BACKEND_PID > "$SCRIPT_DIR/.backend.pid"
@@ -149,13 +145,15 @@ echo ""
 echo -e "${GREEN}Access Points:${NC}"
 echo -e "  Frontend:    ${BLUE}http://localhost:5173${NC}"
 echo -e "  Backend API: ${BLUE}http://localhost:8080/api/flights${NC}"
-echo -e "  Kafka UI:    ${BLUE}http://localhost:8090${NC}"
-echo -e "  SSE Stream:  ${BLUE}http://localhost:8080/api/flights/stream${NC}"
+echo -e "  H2 Console:  ${BLUE}http://localhost:8080/h2-console${NC}"
+echo -e "  Swagger UI:  ${BLUE}http://localhost:8080/swagger-ui.html${NC}"
+echo ""
+echo -e "${YELLOW}Note: Running with H2 in-memory database (Kafka disabled)${NC}"
+echo -e "${YELLOW}To use PostgreSQL + Kafka, run: docker-compose up -d && mvn spring-boot:run -Dspring-boot.run.profiles=dev${NC}"
 echo ""
 echo -e "${YELLOW}To stop all services, run: ./stop.sh${NC}"
 echo ""
 echo -e "${YELLOW}Logs:${NC}"
 echo -e "  Backend:  tail -f backend.log"
 echo -e "  Frontend: tail -f frontend.log"
-echo -e "  Docker:   docker-compose logs -f"
 echo ""

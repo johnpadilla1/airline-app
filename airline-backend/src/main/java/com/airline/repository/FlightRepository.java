@@ -1,7 +1,7 @@
 package com.airline.repository;
 
-import com.airline.model.entity.Flight;
-import com.airline.model.enums.FlightStatus;
+import com.airline.entity.Flight;
+import com.airline.enums.FlightStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

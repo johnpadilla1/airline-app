@@ -1,6 +1,6 @@
-package com.airline.model.dto;
+package com.airline.dto;
 
-import com.airline.model.enums.FlightStatus;
+import com.airline.enums.FlightStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

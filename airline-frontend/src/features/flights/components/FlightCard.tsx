@@ -27,17 +27,10 @@ const FlightCard = React.memo<FlightCardProps>(({ flight, onClick }) => {
   const isCancelled = useMemo(() => isFlightCancelled(flight), [flight]);
   const isLive = useMemo(() => isFlightLive(flight), [flight]);
 
-  const formattedDepartureTime = useMemo(
-    () => formatTime(flight.actualDeparture || flight.scheduledDeparture),
-    [flight.actualDeparture, flight.scheduledDeparture]
-  );
-
-  const formattedArrivalTime = useMemo(
-    () => formatTime(flight.actualArrival || flight.scheduledArrival),
-    [flight.actualArrival, flight.scheduledArrival]
-  );
-
-  const formattedDate = useMemo(() => formatDate(flight.scheduledDeparture), [flight.scheduledDeparture]);
+  // Simple computations don't need useMemo - they're fast enough
+  const formattedDepartureTime = formatTime(flight.actualDeparture || flight.scheduledDeparture);
+  const formattedArrivalTime = formatTime(flight.actualArrival || flight.scheduledArrival);
+  const formattedDate = formatDate(flight.scheduledDeparture);
 
   const handleClick = useMemo(
     () => () => onClick(),

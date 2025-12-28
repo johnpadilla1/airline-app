@@ -1,7 +1,7 @@
 package com.airline.config;
 
-import com.airline.model.entity.Flight;
-import com.airline.model.enums.FlightStatus;
+import com.airline.entity.Flight;
+import com.airline.enums.FlightStatus;
 import com.airline.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

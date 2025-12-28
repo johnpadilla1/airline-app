@@ -1,4 +1,4 @@
-package com.airline.model.dto;
+package com.airline.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

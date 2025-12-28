@@ -1,11 +1,12 @@
 package com.airline.service;
 
-import com.airline.model.dto.FlightDTO;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.entity.Flight;
-import com.airline.model.entity.FlightEvent;
-import com.airline.model.enums.FlightEventType;
-import com.airline.model.enums.FlightStatus;
+import com.airline.mapper.FlightMapper;
+import com.airline.dto.FlightDTO;
+import com.airline.dto.FlightEventDTO;
+import com.airline.entity.Flight;
+import com.airline.entity.FlightEvent;
+import com.airline.enums.FlightEventType;
+import com.airline.enums.FlightStatus;
 import com.airline.repository.FlightEventRepository;
 import com.airline.repository.FlightRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,9 @@ class FlightServiceTest {
 
     @Mock
     private FlightEventRepository flightEventRepository;
+
+    @Mock
+    private FlightMapper flightMapper;
 
     @InjectMocks
     private FlightService flightService;
@@ -104,6 +108,10 @@ class FlightServiceTest {
 
             when(flightRepository.findAll()).thenReturn(Arrays.asList(sampleFlight, flight2));
 
+            FlightDTO dto1 = FlightDTO.builder().flightNumber("AA123").build();
+            FlightDTO dto2 = FlightDTO.builder().flightNumber("UA456").build();
+            when(flightMapper.toDTOList(any())).thenReturn(Arrays.asList(dto1, dto2));
+
             // When
             List<FlightDTO> result = flightService.getAllFlights();
 
@@ -112,6 +120,7 @@ class FlightServiceTest {
             assertThat(result.get(0).getFlightNumber()).isEqualTo("AA123");
             assertThat(result.get(1).getFlightNumber()).isEqualTo("UA456");
             verify(flightRepository).findAll();
+            verify(flightMapper).toDTOList(any());
         }
 
         @Test
@@ -119,6 +128,7 @@ class FlightServiceTest {
         void getAllFlights_ShouldReturnEmptyList_WhenNoFlights() {
             // Given
             when(flightRepository.findAll()).thenReturn(Collections.emptyList());
+            when(flightMapper.toDTOList(any())).thenReturn(Collections.emptyList());
 
             // When
             List<FlightDTO> result = flightService.getAllFlights();
@@ -140,6 +150,12 @@ class FlightServiceTest {
             when(flightRepository.findById(1L)).thenReturn(Optional.of(sampleFlight));
             when(flightEventRepository.findByFlightNumberOrderByEventTimestampDesc(anyString()))
                     .thenReturn(Collections.emptyList());
+            
+            FlightDTO dto = FlightDTO.builder()
+                    .flightNumber("AA123")
+                    .airline("AA")
+                    .build();
+            when(flightMapper.toDetailedDTO(any(Flight.class), any())).thenReturn(dto);
 
             // When
             Optional<FlightDTO> result = flightService.getFlightById(1L);
@@ -177,6 +193,9 @@ class FlightServiceTest {
             when(flightRepository.findByFlightNumber("AA123")).thenReturn(Optional.of(sampleFlight));
             when(flightEventRepository.findByFlightNumberOrderByEventTimestampDesc(anyString()))
                     .thenReturn(Collections.emptyList());
+            
+            FlightDTO dto = FlightDTO.builder().flightNumber("AA123").build();
+            when(flightMapper.toDetailedDTO(any(Flight.class), any())).thenReturn(dto);
 
             // When
             Optional<FlightDTO> result = flightService.getFlightByNumber("AA123");
@@ -212,6 +231,9 @@ class FlightServiceTest {
             // Given
             when(flightRepository.findByStatus(FlightStatus.ON_TIME))
                     .thenReturn(Collections.singletonList(sampleFlight));
+            
+            FlightDTO dto = FlightDTO.builder().status(FlightStatus.ON_TIME).build();
+            when(flightMapper.toDTOList(any())).thenReturn(Collections.singletonList(dto));
 
             // When
             List<FlightDTO> result = flightService.getFlightsByStatus(FlightStatus.ON_TIME);
@@ -228,6 +250,7 @@ class FlightServiceTest {
             // Given
             when(flightRepository.findByStatus(FlightStatus.CANCELLED))
                     .thenReturn(Collections.emptyList());
+            when(flightMapper.toDTOList(any())).thenReturn(Collections.emptyList());
 
             // When
             List<FlightDTO> result = flightService.getFlightsByStatus(FlightStatus.CANCELLED);
@@ -248,6 +271,9 @@ class FlightServiceTest {
             // Given
             when(flightRepository.findByAirline("AA"))
                     .thenReturn(Collections.singletonList(sampleFlight));
+            
+            FlightDTO dto = FlightDTO.builder().airline("AA").build();
+            when(flightMapper.toDTOList(any())).thenReturn(Collections.singletonList(dto));
 
             // When
             List<FlightDTO> result = flightService.getFlightsByAirline("AA");
@@ -269,6 +295,12 @@ class FlightServiceTest {
             // Given
             when(flightEventRepository.findByFlightNumberOrderByEventTimestampDesc("AA123"))
                     .thenReturn(Collections.singletonList(sampleEvent));
+            
+            FlightEventDTO eventDTO = FlightEventDTO.builder()
+                    .flightNumber("AA123")
+                    .eventType(FlightEventType.GATE_CHANGE)
+                    .build();
+            when(flightMapper.toEventDTOList(any())).thenReturn(Collections.singletonList(eventDTO));
 
             // When
             List<FlightEventDTO> result = flightService.getFlightEvents("AA123");
@@ -286,6 +318,7 @@ class FlightServiceTest {
             // Given
             when(flightEventRepository.findByFlightNumberOrderByEventTimestampDesc("AA123"))
                     .thenReturn(Collections.emptyList());
+            when(flightMapper.toEventDTOList(any())).thenReturn(Collections.emptyList());
 
             // When
             List<FlightEventDTO> result = flightService.getFlightEvents("AA123");
@@ -305,6 +338,11 @@ class FlightServiceTest {
             // Given
             when(flightEventRepository.findTop10ByOrderByEventTimestampDesc())
                     .thenReturn(Collections.singletonList(sampleEvent));
+            
+            FlightEventDTO eventDTO = FlightEventDTO.builder()
+                    .eventType(FlightEventType.GATE_CHANGE)
+                    .build();
+            when(flightMapper.toEventDTOList(any())).thenReturn(Collections.singletonList(eventDTO));
 
             // When
             List<FlightEventDTO> result = flightService.getRecentEvents();

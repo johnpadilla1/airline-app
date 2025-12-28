@@ -2,11 +2,12 @@ package com.airline.service;
 
 import com.airline.exception.InvalidInputException;
 import com.airline.exception.ResourceNotFoundException;
-import com.airline.model.dto.FlightDTO;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.entity.Flight;
-import com.airline.model.entity.FlightEvent;
-import com.airline.model.enums.FlightStatus;
+import com.airline.mapper.FlightMapper;
+import com.airline.dto.FlightDTO;
+import com.airline.dto.FlightEventDTO;
+import com.airline.entity.Flight;
+import com.airline.entity.FlightEvent;
+import com.airline.enums.FlightStatus;
 import com.airline.repository.FlightEventRepository;
 import com.airline.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class FlightService {
 
     private final FlightRepository flightRepository;
     private final FlightEventRepository flightEventRepository;
+    private final FlightMapper flightMapper;
 
     private static final int MAX_FLIGHT_NUMBER_LENGTH = 10;
     private static final int MIN_FLIGHT_NUMBER_LENGTH = 3;
@@ -36,9 +38,7 @@ public class FlightService {
      * Get all flights
      */
     public List<FlightDTO> getAllFlights() {
-        return flightRepository.findAll().stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return flightMapper.toDTOList(flightRepository.findAll());
     }
 
     /**
@@ -48,7 +48,14 @@ public class FlightService {
     public Optional<FlightDTO> getFlightById(Long id) {
         validateFlightId(id);
         return flightRepository.findById(id)
-                .map(this::mapToDetailedDTO);
+                .map(flight -> {
+                    List<FlightEvent> recentEvents = flightEventRepository
+                            .findByFlightNumberOrderByEventTimestampDesc(flight.getFlightNumber())
+                            .stream()
+                            .limit(5)
+                            .collect(Collectors.toList());
+                    return flightMapper.toDetailedDTO(flight, recentEvents);
+                });
     }
 
     /**
@@ -58,7 +65,14 @@ public class FlightService {
     public Optional<FlightDTO> getFlightByNumber(String flightNumber) {
         validateFlightNumber(flightNumber);
         return flightRepository.findByFlightNumber(flightNumber)
-                .map(this::mapToDetailedDTO);
+                .map(flight -> {
+                    List<FlightEvent> recentEvents = flightEventRepository
+                            .findByFlightNumberOrderByEventTimestampDesc(flight.getFlightNumber())
+                            .stream()
+                            .limit(5)
+                            .collect(Collectors.toList());
+                    return flightMapper.toDetailedDTO(flight, recentEvents);
+                });
     }
 
     /**
@@ -68,9 +82,7 @@ public class FlightService {
         if (status == null) {
             throw new InvalidInputException("Flight status cannot be null");
         }
-        return flightRepository.findByStatus(status).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return flightMapper.toDTOList(flightRepository.findByStatus(status));
     }
 
     /**
@@ -83,87 +95,25 @@ public class FlightService {
         if (airline.length() > 10) {
             throw new InvalidInputException("Airline code cannot exceed 10 characters");
         }
-        return flightRepository.findByAirline(airline).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return flightMapper.toDTOList(flightRepository.findByAirline(airline));
     }
 
     /**
      * Get event history for a flight
      */
     public List<FlightEventDTO> getFlightEvents(String flightNumber) {
-        return flightEventRepository.findByFlightNumberOrderByEventTimestampDesc(flightNumber).stream()
-                .map(this::mapEventToDTO)
-                .collect(Collectors.toList());
+        return flightMapper.toEventDTOList(
+                flightEventRepository.findByFlightNumberOrderByEventTimestampDesc(flightNumber)
+        );
     }
 
     /**
      * Get recent events across all flights
      */
     public List<FlightEventDTO> getRecentEvents() {
-        return flightEventRepository.findTop10ByOrderByEventTimestampDesc().stream()
-                .map(this::mapEventToDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Map Flight entity to DTO (basic)
-     */
-    private FlightDTO mapToDTO(Flight flight) {
-        return FlightDTO.builder()
-                .id(flight.getId())
-                .flightNumber(flight.getFlightNumber())
-                .airline(flight.getAirline())
-                .airlineName(flight.getAirlineName())
-                .origin(flight.getOrigin())
-                .originCity(flight.getOriginCity())
-                .destination(flight.getDestination())
-                .destinationCity(flight.getDestinationCity())
-                .scheduledDeparture(flight.getScheduledDeparture())
-                .scheduledArrival(flight.getScheduledArrival())
-                .actualDeparture(flight.getActualDeparture())
-                .actualArrival(flight.getActualArrival())
-                .status(flight.getStatus())
-                .gate(flight.getGate())
-                .terminal(flight.getTerminal())
-                .delayMinutes(flight.getDelayMinutes())
-                .aircraft(flight.getAircraft())
-                .updatedAt(flight.getUpdatedAt())
-                .build();
-    }
-
-    /**
-     * Map Flight entity to DTO with recent events
-     */
-    private FlightDTO mapToDetailedDTO(Flight flight) {
-        FlightDTO dto = mapToDTO(flight);
-
-        // Get recent events for this flight (last 5)
-        List<FlightEventDTO> recentEvents = flightEventRepository
-                .findByFlightNumberOrderByEventTimestampDesc(flight.getFlightNumber())
-                .stream()
-                .limit(5)
-                .map(this::mapEventToDTO)
-                .collect(Collectors.toList());
-
-        dto.setRecentEvents(recentEvents);
-        return dto;
-    }
-
-    /**
-     * Map FlightEvent entity to DTO
-     */
-    private FlightEventDTO mapEventToDTO(FlightEvent event) {
-        return FlightEventDTO.builder()
-                .id(event.getId())
-                .flightNumber(event.getFlightNumber())
-                .eventType(event.getEventType())
-                .previousValue(event.getPreviousValue())
-                .newValue(event.getNewValue())
-                .description(event.getDescription())
-                .eventTimestamp(event.getEventTimestamp())
-                .processedTimestamp(event.getProcessedTimestamp())
-                .build();
+        return flightMapper.toEventDTOList(
+                flightEventRepository.findTop10ByOrderByEventTimestampDesc()
+        );
     }
 
     /**

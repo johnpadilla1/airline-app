@@ -1,7 +1,7 @@
 package com.airline.repository;
 
-import com.airline.model.entity.FlightEvent;
-import com.airline.model.enums.FlightEventType;
+import com.airline.entity.FlightEvent;
+import com.airline.enums.FlightEventType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

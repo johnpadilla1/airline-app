@@ -1,4 +1,4 @@
-package com.airline.model.enums;
+package com.airline.enums;
 
 public enum FlightEventType {
     DELAY,

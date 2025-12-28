@@ -100,11 +100,7 @@ function getEventConfig(eventType: string): EventConfig {
  * ```
  */
 const EventTicker = React.memo<EventTickerProps>(({ events, maxEvents = 10, className = '' }) => {
-  // Early return BEFORE any hooks
-  if (!events || events.length === 0) {
-    return null;
-  }
-
+  // ✅ Hooks must be called unconditionally at the top level
   const [isPaused, setIsPaused] = useState(false);
 
   // Handle pause state for accessibility
@@ -118,9 +114,15 @@ const EventTicker = React.memo<EventTickerProps>(({ events, maxEvents = 10, clas
 
   // Duplicate events for seamless loop (memoized)
   const displayEvents = useMemo(() => {
+    if (!events || events.length === 0) return [];
     const eventsToShow = events.slice(0, maxEvents);
     return [...eventsToShow, ...eventsToShow];
   }, [events, maxEvents]);
+
+  // Early return AFTER hooks (following Rules of React)
+  if (!events || events.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`relative overflow-hidden border-y border-theme bg-theme-secondary ${className}`}>

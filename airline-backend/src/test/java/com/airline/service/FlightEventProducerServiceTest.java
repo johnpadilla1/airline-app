@@ -1,9 +1,10 @@
 package com.airline.service;
 
 import com.airline.config.KafkaTopicConfig;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.entity.Flight;
-import com.airline.model.enums.FlightStatus;
+import com.airline.dto.FlightEventDTO;
+import com.airline.entity.Flight;
+import com.airline.enums.FlightStatus;
+import com.airline.enums.FlightEventType;
 import com.airline.repository.FlightRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -150,7 +151,7 @@ class FlightEventProducerServiceTest {
             // Given
             FlightEventDTO event = FlightEventDTO.builder()
                     .flightNumber("AA123")
-                    .eventType(com.airline.model.enums.FlightEventType.GATE_CHANGE)
+                    .eventType(FlightEventType.GATE_CHANGE)
                     .previousValue("A1")
                     .newValue("B2")
                     .description("Gate changed")

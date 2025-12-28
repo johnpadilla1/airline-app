@@ -1,10 +1,10 @@
 package com.airline.service;
 
 import com.airline.config.KafkaTopicConfig;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.entity.Flight;
-import com.airline.model.enums.FlightEventType;
-import com.airline.model.enums.FlightStatus;
+import com.airline.dto.FlightEventDTO;
+import com.airline.entity.Flight;
+import com.airline.enums.FlightEventType;
+import com.airline.enums.FlightStatus;
 import com.airline.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

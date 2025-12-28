@@ -1,14 +1,15 @@
 package com.airline.controller;
 
-import com.airline.model.dto.FlightDTO;
-import com.airline.model.dto.FlightEventDTO;
-import com.airline.model.enums.FlightStatus;
+import com.airline.dto.FlightDTO;
+import com.airline.dto.FlightEventDTO;
+import com.airline.enums.FlightStatus;
 import com.airline.service.FlightService;
 import com.airline.service.SseEmitterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/flights")
 @RequiredArgsConstructor
+@Validated
 @Slf4j
 public class FlightController {
 

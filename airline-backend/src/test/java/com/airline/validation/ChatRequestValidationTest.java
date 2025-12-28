@@ -1,6 +1,6 @@
 package com.airline.validation;
 
-import com.airline.model.dto.ChatRequest;
+import com.airline.dto.ChatRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

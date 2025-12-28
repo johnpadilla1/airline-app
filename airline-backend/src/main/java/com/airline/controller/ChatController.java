@@ -1,14 +1,15 @@
 package com.airline.controller;
 
-import com.airline.model.dto.ChatMessage;
-import com.airline.model.dto.ChatRequest;
-import com.airline.model.dto.ChatResponse;
+import com.airline.dto.ChatMessage;
+import com.airline.dto.ChatRequest;
+import com.airline.dto.ChatResponse;
 import com.airline.service.ChatService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
@@ -17,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
+@Validated
 @Slf4j
 public class ChatController {
 

@@ -1,7 +1,7 @@
 package com.airline.controller;
 
-import com.airline.model.dto.FlightDTO;
-import com.airline.model.enums.FlightStatus;
+import com.airline.dto.FlightDTO;
+import com.airline.enums.FlightStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

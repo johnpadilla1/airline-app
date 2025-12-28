@@ -1,6 +1,6 @@
 package com.airline.exception;
 
-import com.airline.model.dto.ErrorResponse;
+import com.airline.dto.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

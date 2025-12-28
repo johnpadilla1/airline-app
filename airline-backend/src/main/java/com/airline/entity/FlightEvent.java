@@ -1,6 +1,6 @@
-package com.airline.model.entity;
+package com.airline.entity;
 
-import com.airline.model.enums.FlightEventType;
+import com.airline.enums.FlightEventType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

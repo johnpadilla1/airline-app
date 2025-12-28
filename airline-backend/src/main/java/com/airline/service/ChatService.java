@@ -1,8 +1,8 @@
 package com.airline.service;
 
 import com.airline.exception.SqlValidationException;
-import com.airline.model.dto.ChatMessage;
-import com.airline.model.dto.ChatResponse;
+import com.airline.dto.ChatMessage;
+import com.airline.dto.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
